@@ -10,6 +10,7 @@
 #include <sstream>
 #include <iostream>
 #include <unordered_map>
+#include <limits>
 
 struct Instruction
 {
@@ -168,7 +169,30 @@ public:
 
     void calc_early_late_time()
     {
+        for (int i = 0; i < nodes_.size(); i++)
+        {
+            int early = 0;
+            for (int in_edge : nodes_[i].in_edges)
+            {
+                int lat = edges_[in_edge].latency;
+                int prev_early = nodes_[edges_[in_edge].from].early_time;
+                early = std::max(early, lat + prev_early);
+            }
+            nodes_[i].early_time = early;
+        }
 
+        nodes_[nodes_.size() - 1].late_time = nodes_[nodes_.size() - 1].early_time;
+        for (int i = nodes_.size() - 2; i > 0; i--)
+        {
+            int late = std::numeric_limits<int>::max();
+            for (int out_edge : nodes_[i].out_edges)
+            {
+                int lat = edges_[out_edge].latency;
+                int prev_late = nodes_[edges_[out_edge].to].late_time;
+                late = std::min(late, prev_late - lat);
+            }
+            nodes_[i].late_time = late;
+        }
     }
 
 private:
