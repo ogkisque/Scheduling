@@ -19,6 +19,8 @@ int main(int argc, char* argv[])
     auto instructions = parser::Parser::parse(*in);
     DataFlowGraph dfg(instructions);
     dfg.print(std::cout);
+    std::string dot_name = "test";
+    dfg.print_dotter(dot_name);
 
     return 0;
 }

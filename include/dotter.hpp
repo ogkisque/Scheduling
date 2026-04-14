@@ -4,6 +4,7 @@
 #include <cstring>
 #include <fstream>
 #include <cstdlib>
+#include <vector>
 
 namespace dotter {
     enum COLORS {

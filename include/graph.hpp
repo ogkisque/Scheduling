@@ -1,6 +1,7 @@
 #pragma once
 
 #include "const.hpp"
+#include "dotter.hpp"
 
 #include <string>
 #include <optional>
@@ -31,6 +32,7 @@ struct Edge
     int id = -1;
     int from = -1;
     int to = -1;
+    int latency = 0;
 };
 
 struct Node
@@ -39,6 +41,9 @@ struct Node
 
     std::vector<int> in_edges;
     std::vector<int> out_edges;
+
+    int early_time;
+    int late_time;
 };
 
 int get_latency(Op op, Form form)
@@ -76,11 +81,11 @@ public:
 
             if (nodes_[i].instr.op == Op::START)
             {
-                start_id_ = static_cast<int>(i);
+                start_id_ = i;
             }
             if (nodes_[i].instr.op == Op::END)
             {
-                end_id_ = static_cast<int>(i);
+                end_id_ = i;
             }
         }
 
@@ -104,7 +109,7 @@ public:
                << "    (lat=" << node.instr.latency
                << ")\n";
 
-            os << "  preds: ";
+            os << "  in: ";
             if (node.in_edges.empty()) {
                 os << "-";
             }
@@ -120,7 +125,7 @@ public:
             }
             os << "\n";
 
-            os << "  succs: ";
+            os << "  out: ";
             if (node.out_edges.empty())
             {
                 os << "-";
@@ -137,6 +142,33 @@ public:
             }
             os << "\n\n";
         }
+    }
+
+    void print_dotter(std::string& graph_name) const
+    {
+        dotter::Dotter dotter;
+
+        for (auto& node : nodes_)
+        {
+            std::string name = node.instr.text + "\n" + std::to_string(node.early_time)
+                                               + "\n" + std::to_string(node.late_time);
+            dotter.AddNode(name, node.instr.id);
+        }
+
+        for (auto& edge : edges_)
+        {
+            dotter.AddLink(std::to_string(edge.latency), edge.from, edge.to);
+        }
+
+        std::string dot_name = graph_name + ".dot";
+        std::string png_name = graph_name + ".png";
+        dotter.PrintDotText(dot_name);
+        dotter.Render(dot_name, png_name);
+    }
+
+    void calc_early_late_time()
+    {
+
     }
 
 private:
@@ -158,7 +190,7 @@ private:
         return false;
     }
 
-    int add_edge(int from, int to)
+    int add_edge(int from, int to, int latency)
     {
         assert(from >= 0);
         assert(from < nodes_.size());
@@ -171,9 +203,10 @@ private:
         }
 
         Edge e;
-        e.id = static_cast<int>(edges_.size());
+        e.id = edges_.size();
         e.from = from;
         e.to = to;
+        e.latency = latency;
 
         edges_.push_back(e);
         nodes_[from].out_edges.push_back(e.id);
@@ -188,11 +221,12 @@ private:
         int last_memory_op = -1;
         int last_store = -1;
 
-        for (int i = 0; i < static_cast<int>(nodes_.size()); ++i)
+        for (int i = 0; i < nodes_.size(); ++i)
         {
             auto& ins = nodes_[i].instr;
 
-            if (ins.op == Op::START || ins.op == Op::END) {
+            if (ins.op == Op::START || ins.op == Op::END)
+            {
                 continue;
             }
 
@@ -201,31 +235,32 @@ private:
                 auto it = last_writer.find(src);
                 if (it != last_writer.end())
                 {
-                    add_edge(it->second, i);
+                    add_edge(it->second, i, nodes_[it->second].instr.latency);
                 }
                 else
                 {
-                    add_edge(start_id_, i);
+                    add_edge(start_id_, i, 0);
                 }
             }
 
-            if (ins.is_load) {
+            if (ins.is_load)
+            {
                 if (last_store != -1)
                 {
-                    add_edge(last_store, i);
+                    add_edge(last_store, i, nodes_[last_store].instr.latency);
                 } else {
-                    add_edge(start_id_, i);
+                    add_edge(start_id_, i, 0);
                 }
             }
             else if (ins.is_store)
             {
                 if (last_memory_op != -1)
                 {
-                    add_edge(last_memory_op, i);
+                    add_edge(last_memory_op, i, nodes_[last_memory_op].instr.latency);
                 }
                 else
                 {
-                    add_edge(start_id_, i);
+                    add_edge(start_id_, i, 0);
                 }
             }
 
@@ -241,7 +276,7 @@ private:
             }
         }
 
-        for (int i = 0; i < static_cast<int>(nodes_.size()); ++i)
+        for (int i = 0; i < nodes_.size(); i++)
         {
             if (i == end_id_) 
             {
@@ -249,7 +284,7 @@ private:
             }
             if (nodes_[i].out_edges.empty())
             {
-                add_edge(i, end_id_);
+                add_edge(i, end_id_, nodes_[i].instr.latency);
             }
         }
     }
