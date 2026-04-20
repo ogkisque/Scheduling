@@ -1,5 +1,7 @@
 #pragma once
 
+#include <set>
+
 namespace Latency
 {
     const int START         = 0;
@@ -42,3 +44,14 @@ enum class Form
     RD_RS_IMM,
     RD_IMM
 };
+
+namespace Units
+{
+    const int NUM_LSU       = 1;
+    const int NUM_ARITH     = 1;
+    const int NUM_ARITH_C   = 1;
+
+    const std::set<Op> LSU_OPS = {Op::LD, Op::ST};
+    const std::set<Op> ARITH_OPS = {Op::ADD, Op::SUB, Op::SHL, Op::SHR, Op::MOV};
+    const std::set<Op> ARITH_C_OPS = {Op::ADD, Op::SUB, Op::SHL, Op::SHR, Op::MOV, Op::MUL, Op::DIV};
+}

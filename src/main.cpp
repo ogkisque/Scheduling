@@ -2,6 +2,7 @@
 #include <cassert>
 #include "parser.hpp"
 #include "graph.hpp"
+#include "scheduler.hpp"
 
 int main(int argc, char* argv[])
 {
@@ -10,20 +11,24 @@ int main(int argc, char* argv[])
     std::ifstream file;
     std::istream* in = &std::cin;
 
-    if (argc == 2) {
+    if (argc == 2)
+    {
         file.open(argv[1]);
         assert(file.is_open());
         in = &file;
     }
 
     auto instructions = parser::Parser::parse(*in);
-    DataFlowGraph dfg(instructions);
+    auto dfg = std::make_shared<graph::DataFlowGraph>(instructions);
+    scheduler::Scheduler scheduler(dfg);
 
-    dfg.calc_early_late_time();
+    //dfg->print(std::cout);
+    //std::string dot_name = "test";
+    //dfg->print_dotter(dot_name);
 
-    dfg.print(std::cout);
-    std::string dot_name = "test";
-    dfg.print_dotter(dot_name);
+    //scheduler.dump();
+
+    scheduler.schedule();
 
     return 0;
 }

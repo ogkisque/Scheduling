@@ -11,6 +11,32 @@
 #include <iostream>
 #include <unordered_map>
 #include <limits>
+#include <memory>
+
+int get_latency(Op op, Form form)
+{
+    switch (op)
+    {
+        case Op::START: return Latency::START;
+        case Op::LD:    return Latency::LD;
+        case Op::ST:    return Latency::ST;
+        case Op::ADD:
+        case Op::SUB:
+            return (form == Form::RD_RS_RS) ? Latency::ADD_SUB_REG : Latency::ADD_SUB_IMM;
+        case Op::SHL:
+        case Op::SHR:   return Latency::SHL_SHR;
+        case Op::MOV:   return Latency::MOV;
+        case Op::MUL:   
+            return (form == Form::RD_RS_RS) ? Latency::MUL_REG : Latency::MUL_IMM;
+        case Op::DIV:
+            return (form == Form::RD_RS_RS) ? Latency::DIV_REG : Latency::DIV_IMM;
+        case Op::END:   return Latency::END;
+        default:        assert(0);
+    }
+}
+
+namespace graph
+{
 
 struct Instruction
 {
@@ -45,46 +71,29 @@ struct Node
 
     int early_time;
     int late_time;
+    bool scheduled = false;
 };
-
-int get_latency(Op op, Form form)
-{
-    switch (op)
-    {
-        case Op::START: return Latency::START;
-        case Op::LD:    return Latency::LD;
-        case Op::ST:    return Latency::ST;
-        case Op::ADD:
-        case Op::SUB:
-            return (form == Form::RD_RS_RS) ? Latency::ADD_SUB_REG : Latency::ADD_SUB_IMM;
-        case Op::SHL:
-        case Op::SHR:   return Latency::SHL_SHR;
-        case Op::MOV:   return Latency::MOV;
-        case Op::MUL:   
-            return (form == Form::RD_RS_RS) ? Latency::MUL_REG : Latency::MUL_IMM;
-        case Op::DIV:
-            return (form == Form::RD_RS_RS) ? Latency::DIV_REG : Latency::DIV_IMM;
-        case Op::END:   return Latency::END;
-        default:        assert(0);
-    }
-}
 
 class DataFlowGraph
 {
 public:
     explicit DataFlowGraph(std::vector<Instruction> instructions)
     {
-        nodes_.resize(instructions.size());
-
+        nodes_.reserve(instructions.size());
+        for (int i = 0; i < instructions.size(); i++)
+        {
+            nodes_.push_back(std::make_shared<Node>());
+        }
+        
         for (size_t i = 0; i < instructions.size(); ++i)
         {
-            nodes_[i].instr = std::move(instructions[i]);
+            nodes_[i]->instr = std::move(instructions[i]);
 
-            if (nodes_[i].instr.op == Op::START)
+            if (nodes_[i]->instr.op == Op::START)
             {
                 start_id_ = i;
             }
-            if (nodes_[i].instr.op == Op::END)
+            if (nodes_[i]->instr.op == Op::END)
             {
                 end_id_ = i;
             }
@@ -103,41 +112,41 @@ public:
 
         for (const auto& node : nodes_)
         {
-            const int id = node.instr.id;
+            const int id = node->instr.id;
 
             os << "[" << id << "] "
-               << node.instr.text
-               << "    (lat=" << node.instr.latency
+               << node->instr.text
+               << "    (lat=" << node->instr.latency
                << ")\n";
 
             os << "  in: ";
-            if (node.in_edges.empty()) {
+            if (node->in_edges.empty()) {
                 os << "-";
             }
             else
             {
-                for (size_t i = 0; i < node.in_edges.size(); ++i)
+                for (size_t i = 0; i < node->in_edges.size(); ++i)
                 {
                     if (i) os << ", ";
-                    const Edge& e = edges_[node.in_edges[i]];
-                    os << "[" << e.from << " -> " << e.to;
+                    auto e = edges_[node->in_edges[i]];
+                    os << "[" << e->from << " -> " << e->to;
                     os << "]";
                 }
             }
             os << "\n";
 
             os << "  out: ";
-            if (node.out_edges.empty())
+            if (node->out_edges.empty())
             {
                 os << "-";
             }
             else
             {
-                for (size_t i = 0; i < node.out_edges.size(); ++i)
+                for (size_t i = 0; i < node->out_edges.size(); ++i)
                 {
                     if (i) os << ", ";
-                    const Edge& e = edges_[node.out_edges[i]];
-                    os << "[" << e.from << " -> " << e.to;
+                    auto e = edges_[node->out_edges[i]];
+                    os << "[" << e->from << " -> " << e->to;
                     os << "]";
                 }
             }
@@ -148,17 +157,22 @@ public:
     void print_dotter(std::string& graph_name) const
     {
         dotter::Dotter dotter;
+        static dotter::NodeStyle sched_style(dotter::NodeStyle::SHAPES::BOX, dotter::NodeStyle::STYLES::ROUNDED,
+                                             dotter::COLORS::BLACK, dotter::COLORS::RED, dotter::COLORS::BLACK);
 
         for (auto& node : nodes_)
         {
-            std::string name = node.instr.text + "\n" + std::to_string(node.early_time)
-                                               + "\n" + std::to_string(node.late_time);
-            dotter.AddNode(name, node.instr.id);
+            std::string name = node->instr.text + "\n" + std::to_string(node->early_time)
+                                                + "\n" + std::to_string(node->late_time);
+            if (node->scheduled)
+                dotter.AddNode(name, node->instr.id, sched_style);
+            else
+                dotter.AddNode(name, node->instr.id);
         }
 
         for (auto& edge : edges_)
         {
-            dotter.AddLink(std::to_string(edge.latency), edge.from, edge.to);
+            dotter.AddLink(std::to_string(edge->latency), edge->from, edge->to);
         }
 
         std::string dot_name = graph_name + ".dot";
@@ -172,41 +186,51 @@ public:
         for (int i = 0; i < nodes_.size(); i++)
         {
             int early = 0;
-            for (int in_edge : nodes_[i].in_edges)
+            for (int in_edge : nodes_[i]->in_edges)
             {
-                int lat = edges_[in_edge].latency;
-                int prev_early = nodes_[edges_[in_edge].from].early_time;
+                int lat = edges_[in_edge]->latency;
+                int prev_early = nodes_[edges_[in_edge]->from]->early_time;
                 early = std::max(early, lat + prev_early);
             }
-            nodes_[i].early_time = early;
+            nodes_[i]->early_time = early;
         }
 
-        nodes_[nodes_.size() - 1].late_time = nodes_[nodes_.size() - 1].early_time;
+        nodes_[nodes_.size() - 1]->late_time = nodes_[nodes_.size() - 1]->early_time;
         for (int i = nodes_.size() - 2; i > 0; i--)
         {
             int late = std::numeric_limits<int>::max();
-            for (int out_edge : nodes_[i].out_edges)
+            for (int out_edge : nodes_[i]->out_edges)
             {
-                int lat = edges_[out_edge].latency;
-                int prev_late = nodes_[edges_[out_edge].to].late_time;
+                int lat = edges_[out_edge]->latency;
+                int prev_late = nodes_[edges_[out_edge]->to]->late_time;
                 late = std::min(late, prev_late - lat);
             }
-            nodes_[i].late_time = late;
+            nodes_[i]->late_time = late;
         }
     }
 
-private:
-    std::vector<Node> nodes_;
-    std::vector<Edge> edges_;
+    bool all_scheduled() const
+    {
+        for (auto& node : nodes_)
+        {
+            if (node->instr.id != end_id_ && !node->scheduled)
+                return false;
+        }
+        return true;
+    }
+
+    std::vector<std::shared_ptr<Node>> nodes_;
+    std::vector<std::shared_ptr<Edge>> edges_;
     int start_id_ = -1;
     int end_id_ = -1;
 
+private:
     bool has_edge(int from, int to) const
     {
-        for (int eid : nodes_[from].out_edges)
+        for (int eid : nodes_[from]->out_edges)
         {
-            const Edge& e = edges_[eid];
-            if (e.from == from && e.to == to)
+            auto e = edges_[eid];
+            if (e->from == from && e->to == to)
             {
                 return true;
             }
@@ -226,17 +250,13 @@ private:
             return -1;
         }
 
-        Edge e;
-        e.id = edges_.size();
-        e.from = from;
-        e.to = to;
-        e.latency = latency;
+        auto e = std::make_shared<Edge>(edges_.size(), from, to, latency);
 
         edges_.push_back(e);
-        nodes_[from].out_edges.push_back(e.id);
-        nodes_[to].in_edges.push_back(e.id);
+        nodes_[from]->out_edges.push_back(e->id);
+        nodes_[to]->in_edges.push_back(e->id);
 
-        return e.id;
+        return e->id;
     }
 
     void build()
@@ -247,7 +267,7 @@ private:
 
         for (int i = 0; i < nodes_.size(); ++i)
         {
-            auto& ins = nodes_[i].instr;
+            auto& ins = nodes_[i]->instr;
 
             if (ins.op == Op::START || ins.op == Op::END)
             {
@@ -259,7 +279,7 @@ private:
                 auto it = last_writer.find(src);
                 if (it != last_writer.end())
                 {
-                    add_edge(it->second, i, nodes_[it->second].instr.latency);
+                    add_edge(it->second, i, nodes_[it->second]->instr.latency);
                 }
                 else
                 {
@@ -271,7 +291,7 @@ private:
             {
                 if (last_store != -1)
                 {
-                    add_edge(last_store, i, nodes_[last_store].instr.latency);
+                    add_edge(last_store, i, nodes_[last_store]->instr.latency);
                 } else {
                     add_edge(start_id_, i, 0);
                 }
@@ -280,7 +300,7 @@ private:
             {
                 if (last_memory_op != -1)
                 {
-                    add_edge(last_memory_op, i, nodes_[last_memory_op].instr.latency);
+                    add_edge(last_memory_op, i, nodes_[last_memory_op]->instr.latency);
                 }
                 else
                 {
@@ -292,10 +312,12 @@ private:
                 last_writer[*ins.dst_reg] = i;
             }
 
-            if (ins.is_load || ins.is_store) {
+            if (ins.is_load || ins.is_store)
+            {
                 last_memory_op = i;
             }
-            if (ins.is_store) {
+            if (ins.is_store)
+            {
                 last_store = i;
             }
         }
@@ -306,11 +328,12 @@ private:
             {
                 continue;
             }
-            if (nodes_[i].out_edges.empty())
+            if (nodes_[i]->out_edges.empty())
             {
-                add_edge(i, end_id_, nodes_[i].instr.latency);
+                add_edge(i, end_id_, nodes_[i]->instr.latency);
             }
         }
     }
 };
 
+}

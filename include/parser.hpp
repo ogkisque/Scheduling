@@ -149,9 +149,9 @@ static std::string trim(const std::string& s)
 class Parser
 {
 public:
-    static std::vector<Instruction> parse(std::istream& in)
+    static std::vector<graph::Instruction> parse(std::istream& in)
     {
-        std::vector<Instruction> result;
+        std::vector<graph::Instruction> result;
 
         std::string line;
         int lineNo = 0;
@@ -183,11 +183,11 @@ public:
     }
 
 private:
-    static Instruction parse_line(const std::string& s, int id, int lineNo)
+    static graph::Instruction parse_line(const std::string& s, int id, int lineNo)
     {
         LineParser p(s);
 
-        Instruction ins;
+        graph::Instruction ins;
         ins.id = id;
         ins.lineNo = lineNo;
         ins.text = s;
