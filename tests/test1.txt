@@ -1,0 +1,23 @@
+start
+ld   r2, [0x13008]
+ld   r3, [0x13016]
+ld   r4, [0x140A0]
+mov  r1, 5757
+ld   r5, [0x1400D]
+mov  r0, 9898
+add  r6, r5, r0
+ld   r8, [0x140C0]
+sub  r7, r6, r5
+ld   r10, [r3]
+add  r11, r4, r1
+mul  r12, r7, r2
+mov  r13, r6
+div  r14, r8, r5
+add  r9, r5, r14
+shl  r15, r12, r9
+mul  r16, r11, r10
+shl  r17, r16, r6
+add  r18, r15, r9
+st   r15, [0x14A004]
+st   r18, [r13]
+end
