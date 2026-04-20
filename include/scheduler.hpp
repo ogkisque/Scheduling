@@ -57,9 +57,8 @@ public:
     {
         while (!dfg_->all_scheduled() && cur_cycle_ <= 10)
         {
-            std::string name = "gr" + std::to_string(cur_cycle_);
-            dfg_->print_dotter(name);
-            dump();
+            process_lists();
+            //dump();
 
             ready_.sort([]( const std::shared_ptr<graph::Node>& a,
                             const std::shared_ptr<graph::Node>& b)
@@ -75,7 +74,8 @@ public:
                     ++it;
             }
 
-            process_lists();
+            std::string name = "gr" + std::to_string(cur_cycle_);
+            dfg_->print_dotter(name);
             cur_cycle_++;
         }
     }
@@ -124,10 +124,11 @@ private:
     {
         for (auto it = partial_ready_.begin(); it != partial_ready_.end(); )
         {
-            if (is_all_parents_scheduled(*it))
+            auto node = *it;
+            if (node->early_time <= cur_cycle_)
             {
                 it = partial_ready_.erase(it);
-                ready_.push_back(*it);
+                ready_.push_back(node);
             }
             else
             {
@@ -139,11 +140,12 @@ private:
         {
             if (is_all_parents_scheduled(*it))
             {
+                auto node = *it;
                 it = not_ready_.erase(it);
-                if ((*it)->early_time <= cur_cycle_)
-                    ready_.push_back(*it);
+                if (node->early_time <= cur_cycle_)
+                    ready_.push_back(node);
                 else
-                    partial_ready_.push_back(*it);
+                    partial_ready_.push_back(node);
             }
             else
             {
