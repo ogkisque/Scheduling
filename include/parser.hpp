@@ -43,7 +43,7 @@ public:
             pos_++;
         }
 
-        return s_.substr(begin, pos_ - begin);
+        return ascii_upper(s_.substr(begin, pos_ - begin));
     }
 
     bool next_is_int()
@@ -116,7 +116,23 @@ public:
         return pos_ < s_.size() && is_word_start(s_[pos_]);
     }
 
+    char peek()
+    {
+        skip_spaces();
+        assert(pos_ < s_.size());
+        return s_[pos_];
+    }
+
 private:
+    static std::string ascii_upper(std::string s)
+    {
+        for (char& c : s)
+        {
+            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        }
+        return s;
+    }
+
     static bool is_word_start(char c)
     {
         return std::isalpha(static_cast<unsigned char>(c)) || c == '_';
@@ -221,18 +237,22 @@ private:
             if (p.next_is_word())
             {
                 const std::string base = p.parse_word();
-                p.expect('+');
-                p.parse_int();
-                p.expect(']');
-
-                ins.form = Form::LD_BASE_IMM;
                 ins.src_regs.push_back(base);
+
+                p.skip_spaces();
+                if (p.peek() == '+')
+                {
+                    p.expect('+');
+                    p.parse_int();
+                }
+
+                p.expect(']');
+                ins.form = Form::LD_BASE_IMM;
             }
             else
             {
                 p.parse_int();
                 p.expect(']');
-
                 ins.form = Form::LD_IMM;
             }
 
@@ -251,15 +271,23 @@ private:
             p.expect(',');
             p.expect('[');
 
-            if (p.next_is_word()) {
+            if (p.next_is_word())
+            {
                 const std::string base = p.parse_word();
-                p.expect('+');
-                p.parse_int();
-                p.expect(']');
-
-                ins.form = Form::ST_BASE_IMM;
                 ins.src_regs.push_back(base);
-            } else {
+
+                p.skip_spaces();
+                if (p.peek() == '+')
+                {
+                    p.expect('+');
+                    p.parse_int();
+                }
+
+                p.expect(']');
+                ins.form = Form::ST_BASE_IMM;
+            }
+            else
+            {
                 p.parse_int();
                 p.expect(']');
 
@@ -304,9 +332,19 @@ private:
             p.expect(',');
             ins.src_regs.push_back(p.parse_word());
             p.expect(',');
-            p.parse_int();
 
-            ins.form = Form::RD_RS_IMM;
+            if (p.next_is_word())
+            {
+                ins.src_regs.push_back(p.parse_word());
+                ins.form = Form::RD_RS_RS;
+            }
+            else
+            {
+                assert(p.next_is_int());
+                p.parse_int();
+                ins.form = Form::RD_RS_IMM;
+            }
+
             ins.latency = get_latency(ins.op, ins.form);
             return ins;
         }

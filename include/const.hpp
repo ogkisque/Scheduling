@@ -7,14 +7,14 @@ namespace Latency
     const int START         = 0;
     const int LD            = 3;
     const int ST            = 1;
-    const int ADD_SUB_REG   = 2;
+    const int ADD_SUB_REG   = 1;
     const int ADD_SUB_IMM   = 1;
     const int SHL_SHR       = 1;
     const int MOV           = 1;
     const int MUL_REG       = 4;
     const int MUL_IMM       = 4;
-    const int DIV_REG       = 12;
-    const int DIV_IMM       = 12;
+    const int DIV_REG       = 7;
+    const int DIV_IMM       = 7;
     const int END           = 0;
 }
 

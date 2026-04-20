@@ -11,14 +11,16 @@ namespace Units
 class Unit
 {
 public:
-    Unit(const std::set<Op>& ops, std::string& name) : ops_(ops), busy_to_cycle(-1), name_(name) {}
+    Unit(const std::set<Op>& ops, std::string& name) : ops_(ops), name_(name), busy_cycle_(-1) {}
 
-    bool try_push_instr(int cycle, Op op, int latency)
+    bool try_push_instr(int cycle, Op op)
     {
-        if (ops_.count(op) == 0 || cycle < busy_to_cycle)
+        if (ops_.count(op) == 0 || cycle == busy_cycle_)
+        {
             return false;
+        }
 
-        busy_to_cycle = cycle + latency;
+        busy_cycle_ = cycle;
         return true;
     }
 
@@ -29,7 +31,7 @@ public:
 private:
     const std::set<Op> ops_;
     std::string name_;
-    int busy_to_cycle;
+    int busy_cycle_;
 };
     
 }

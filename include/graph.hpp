@@ -162,7 +162,8 @@ public:
 
         for (auto& node : nodes_)
         {
-            std::string name = node->instr.text + "\n" + std::to_string(node->early_time)
+            std::string name = "[" + std::to_string(node->instr.id) + "]\n" +
+                               node->instr.text + "\n" + std::to_string(node->early_time)
                                                 + "\n" + std::to_string(node->late_time);
             if (node->scheduled)
                 dotter.AddNode(name, node->instr.id, sched_style);
@@ -193,6 +194,45 @@ public:
                 early = std::max(early, lat + prev_early);
             }
             nodes_[i]->early_time = early;
+        }
+
+        nodes_[nodes_.size() - 1]->late_time = nodes_[nodes_.size() - 1]->early_time;
+        for (int i = nodes_.size() - 2; i > 0; i--)
+        {
+            int late = std::numeric_limits<int>::max();
+            for (int out_edge : nodes_[i]->out_edges)
+            {
+                int lat = edges_[out_edge]->latency;
+                int prev_late = nodes_[edges_[out_edge]->to]->late_time;
+                late = std::min(late, prev_late - lat);
+            }
+            nodes_[i]->late_time = late;
+        }
+    }
+
+    void recalc_early_late_time(int cur_cycle)
+    {
+        for (int i = 0; i < nodes_.size(); i++)
+        {
+            if (!nodes_[i]->scheduled)
+            {
+                
+                int early = cur_cycle;
+                for (int in_edge : nodes_[i]->in_edges)
+                {
+                    int lat = edges_[in_edge]->latency;
+                    auto child = nodes_[edges_[in_edge]->from];
+                    int prev_early = child->early_time;
+                    early = std::max(early, lat + prev_early);
+                }
+
+                //printf("AAAA. cycle %d; %s; early %d\n",
+                        //cur_cycle, nodes_[i]->instr.text.c_str(), nodes_[i]->early_time);
+
+                nodes_[i]->early_time = early;
+                //if (nodes_[i]->early_time < cur_cycle)
+                    //nodes_[i]->early_time = early;
+            }
         }
 
         nodes_[nodes_.size() - 1]->late_time = nodes_[nodes_.size() - 1]->early_time;
@@ -281,10 +321,6 @@ private:
                 {
                     add_edge(it->second, i, nodes_[it->second]->instr.latency);
                 }
-                else
-                {
-                    add_edge(start_id_, i, 0);
-                }
             }
 
             if (ins.is_load)
@@ -292,8 +328,6 @@ private:
                 if (last_store != -1)
                 {
                     add_edge(last_store, i, nodes_[last_store]->instr.latency);
-                } else {
-                    add_edge(start_id_, i, 0);
                 }
             }
             else if (ins.is_store)
@@ -302,13 +336,15 @@ private:
                 {
                     add_edge(last_memory_op, i, nodes_[last_memory_op]->instr.latency);
                 }
-                else
-                {
-                    add_edge(start_id_, i, 0);
-                }
             }
 
-            if (ins.dst_reg.has_value()) {
+            if (nodes_[i]->in_edges.empty())
+            {
+                add_edge(start_id_, i, 0);
+            }
+
+            if (ins.dst_reg.has_value())
+            {
                 last_writer[*ins.dst_reg] = i;
             }
 
@@ -324,7 +360,7 @@ private:
 
         for (int i = 0; i < nodes_.size(); i++)
         {
-            if (i == end_id_) 
+            if (i == end_id_)
             {
                 continue;
             }

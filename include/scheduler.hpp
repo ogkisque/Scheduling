@@ -55,8 +55,9 @@ public:
 
     void schedule()
     {
-        while (!dfg_->all_scheduled() && cur_cycle_ <= 10)
+        while (!dfg_->all_scheduled() && cur_cycle_ <= 15)
         {
+            dfg_->recalc_early_late_time(cur_cycle_);
             process_lists();
             //dump();
 
@@ -109,10 +110,10 @@ private:
     {
         for (auto& unit : units_)
         {
-            if (unit->try_push_instr(cur_cycle_, node->instr.op, node->instr.latency))
+            if (unit->try_push_instr(cur_cycle_, node->instr.op))
             {
                 printf("[%d] %s: %s {id %d}\n", cur_cycle_, unit->get_name().c_str(),
-                                                 node->instr.text.c_str(), node->instr.id);
+                                                node->instr.text.c_str(), node->instr.id);
                 node->scheduled = true;
                 return true;
             }
