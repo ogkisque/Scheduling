@@ -216,7 +216,6 @@ public:
         {
             if (!nodes_[i]->scheduled)
             {
-                
                 int early = cur_cycle;
                 for (int in_edge : nodes_[i]->in_edges)
                 {
@@ -226,12 +225,7 @@ public:
                     early = std::max(early, lat + prev_early);
                 }
 
-                //printf("AAAA. cycle %d; %s; early %d\n",
-                        //cur_cycle, nodes_[i]->instr.text.c_str(), nodes_[i]->early_time);
-
                 nodes_[i]->early_time = early;
-                //if (nodes_[i]->early_time < cur_cycle)
-                    //nodes_[i]->early_time = early;
             }
         }
 

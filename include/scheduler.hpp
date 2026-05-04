@@ -59,7 +59,6 @@ public:
         {
             dfg_->recalc_early_late_time(cur_cycle_);
             process_lists();
-            //dump();
 
             ready_.sort([]( const std::shared_ptr<graph::Node>& a,
                             const std::shared_ptr<graph::Node>& b)
@@ -75,8 +74,8 @@ public:
                     ++it;
             }
 
-            std::string name = "gr" + std::to_string(cur_cycle_);
-            dfg_->print_dotter(name);
+            // std::string name = "gr" + std::to_string(cur_cycle_);
+            // dfg_->print_dotter(name);
             cur_cycle_++;
         }
     }

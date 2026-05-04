@@ -20,15 +20,7 @@ int main(int argc, char* argv[])
 
     auto instructions = parser::Parser::parse(*in);
     auto dfg = std::make_shared<graph::DataFlowGraph>(instructions);
-    dfg->print(std::cout);
     scheduler::Scheduler scheduler(dfg);
-
-    //dfg->print(std::cout);
-    //std::string dot_name = "test";
-    //dfg->print_dotter(dot_name);
-
-    //scheduler.dump();
-
     scheduler.schedule();
 
     return 0;

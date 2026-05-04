@@ -1,0 +1,21 @@
+[0] LSU0: ld   r5, [0x1400D] {id 5}
+[0] ARITH0: mov  r0, 9898 {id 6}
+[0] ARITH_C0: mov  r1, 5757 {id 4}
+[1] LSU0: ld   r8, [0x140C0] {id 8}
+[2] LSU0: ld   r3, [0x13016] {id 2}
+[3] LSU0: ld   r2, [0x13008] {id 1}
+[3] ARITH0: add  r6, r5, r0 {id 7}
+[4] ARITH_C0: div  r14, r8, r5 {id 14}
+[4] LSU0: ld   r4, [0x140A0] {id 3}
+[4] ARITH0: sub  r7, r6, r5 {id 9}
+[5] LSU0: ld   r10, [r3] {id 10}
+[5] ARITH0: mov  r13, r6 {id 13}
+[6] ARITH_C0: mul  r12, r7, r2 {id 12}
+[7] ARITH0: add  r11, r4, r1 {id 11}
+[8] ARITH_C0: mul  r16, r11, r10 {id 17}
+[11] ARITH0: add  r9, r5, r14 {id 15}
+[12] ARITH0: shl  r15, r12, r9 {id 16}
+[12] ARITH_C0: shl  r17, r16, r6 {id 18}
+[13] ARITH0: add  r18, r15, r9 {id 19}
+[13] LSU0: st   r15, [0x14A004] {id 20}
+[14] LSU0: st   r18, [r13] {id 21}
